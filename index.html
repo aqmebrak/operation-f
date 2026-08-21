@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOSSIER CLASSIFIÉ — ACCÈS RESTREINT</title>
+<style>
+  :root{
+    --bg:#05070a;
+    --panel:#0b0f14;
+    --line:#1c2530;
+    --amber:#e8b34c;
+    --amber-dim:#8a6a2c;
+    --green:#4fd68c;
+    --red:#e5484d;
+    --text:#c9d1d9;
+    --text-dim:#5c6773;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Consolas','Courier New',ui-monospace,monospace;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.015) 0px,
+      rgba(255,255,255,0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events:none;
+    z-index:9999;
+    mix-blend-mode:overlay;
+  }
+  body::after{
+    content:"";
+    position:fixed;inset:0;
+    background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+    pointer-events:none;
+    z-index:9998;
+  }
+  .wrap{
+    max-width:760px;
+    margin:0 auto;
+    padding:40px 20px 120px;
+    min-height:100%;
+  }
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:11px;
+    letter-spacing:2px;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--line);
+    padding-bottom:12px;
+    margin-bottom:28px;
+  }
+  .topbar .blink{
+    color:var(--red);
+    animation:blink 1.4s infinite steps(1);
+  }
+  @keyframes blink{50%{opacity:0.15;}}
+  .stamp{
+    display:inline-block;
+    border:2px solid var(--red);
+    color:var(--red);
+    font-weight:bold;
+    letter-spacing:3px;
+    padding:6px 14px;
+    transform:rotate(-4deg);
+    font-size:12px;
+    margin-bottom:18px;
+    opacity:0.9;
+  }
+  h1{
+    font-size:22px;
+    letter-spacing:2px;
+    color:var(--amber);
+    margin:0 0 6px;
+    text-shadow:0 0 12px rgba(232,179,76,0.25);
+  }
+  h2{
+    font-size:14px;
+    letter-spacing:2px;
+    color:var(--text-dim);
+    font-weight:normal;
+    margin:0 0 28px;
+    text-transform:uppercase;
+  }
+  .screen{display:none;}
+  .screen.active{display:block;animation:fadeIn 0.6s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* --- Intro --- */
+  #intro-text{
+    font-size:14px;
+    line-height:1.9;
+    color:var(--text);
+    min-height:180px;
+    white-space:pre-wrap;
+  }
+  .cursor{
+    display:inline-block;width:8px;height:15px;
+    background:var(--amber);vertical-align:middle;
+    animation:blink 0.9s infinite steps(1);
+    margin-left:2px;
+  }
+  button{
+    font-family:inherit;
+    background:transparent;
+    border:1px solid var(--amber-dim);
+    color:var(--amber);
+    padding:12px 22px;
+    font-size:12px;
+    letter-spacing:2px;
+    cursor:pointer;
+    text-transform:uppercase;
+    transition:all .2s;
+  }
+  button:hover{background:rgba(232,179,76,0.1);border-color:var(--amber);}
+  button:disabled{opacity:0.3;cursor:not-allowed;}
+  .btn-row{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap;}
+
+  /* --- Dossier progress --- */
+  .progress-row{
+    display:flex;gap:10px;margin-bottom:24px;
+  }
+  .progress-dot{
+    flex:1;
+    border:1px solid var(--line);
+    padding:10px 8px;
+    text-align:center;
+    font-size:10px;
+    letter-spacing:1px;
+    color:var(--text-dim);
+  }
+  .progress-dot.done{
+    border-color:var(--green);
+    color:var(--green);
+  }
+  .progress-dot.current{
+    border-color:var(--amber);
+    color:var(--amber);
+  }
+
+  .file-header{
+    display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px dashed var(--line);
+    padding-bottom:10px;margin-bottom:20px;
+  }
+  .file-header .id{color:var(--text-dim);font-size:11px;letter-spacing:2px;}
+  .file-header .status{font-size:11px;letter-spacing:1px;color:var(--amber);}
+
+  .logline{
+    font-size:10px;letter-spacing:2px;color:var(--text-dim);
+    text-transform:uppercase;margin-bottom:10px;font-style:italic;
+  }
+
+  .dossier-body{
+    font-size:14.5px;
+    line-height:2.05;
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:26px 22px;
+    position:relative;
+  }
+  .dossier-body::before{
+    content:"CONFIDENTIEL";
+    position:absolute;
+    top:10px;right:14px;
+    font-size:10px;
+    letter-spacing:2px;
+    color:var(--text-dim);
+    opacity:0.5;
+  }
+
+  .blank{
+    display:inline-block;
+    background:#111;
+    border-bottom:2px solid var(--red);
+    color:transparent;
+    letter-spacing:2px;
+    padding:1px 2px;
+    user-select:none;
+    position:relative;
+    transition:all .4s;
+  }
+  .blank.revealed{
+    background:transparent;
+    color:var(--green);
+    border-bottom:2px solid var(--green);
+    font-weight:bold;
+    letter-spacing:normal;
+    animation:pop .35s ease;
+  }
+  @keyframes pop{0%{transform:scale(1.15);}100%{transform:scale(1);}}
+
+  .guess-row{
+    margin-top:22px;
+    display:flex;gap:10px;flex-wrap:wrap;
+  }
+  .guess-row input{
+    flex:1;min-width:200px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--amber);
+    font-family:inherit;
+    font-size:14px;
+    padding:12px 14px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .guess-row input:focus{outline:none;border-color:var(--amber-dim);}
+
+  .log{
+    margin-top:16px;
+    font-size:11.5px;
+    color:var(--text-dim);
+    line-height:1.9;
+    max-height:120px;
+    overflow-y:auto;
+  }
+  .log .ok{color:var(--green);}
+  .log .no{color:var(--red);}
+
+  .hint-row{
+    margin-top:14px;
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .hint-row button{padding:8px 14px;font-size:11px;}
+
+  .fragment-reveal{
+    margin-top:26px;
+    border:1px solid var(--green);
+    padding:18px;
+    text-align:center;
+    display:none;
+  }
+  .fragment-reveal.show{display:block;animation:fadeIn .6s ease;}
+  .fragment-reveal .label{font-size:10px;letter-spacing:2px;color:var(--text-dim);margin-bottom:8px;}
+  .fragment-reveal .frag{
+    font-size:32px;letter-spacing:8px;color:var(--green);
+    text-shadow:0 0 16px rgba(79,214,140,0.4);
+  }
+  .frag-locked{
+    font-size:28px;letter-spacing:10px;color:var(--red);
+    opacity:0.75;
+  }
+
+  .scramble-assembly{
+    display:flex;justify-content:center;gap:8px;margin:14px 0 18px;flex-wrap:wrap;
+  }
+  .scramble-assembly .slot{
+    width:38px;height:46px;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;font-weight:bold;
+    background:var(--bg);
+    transition:all .2s;
+  }
+  .scramble-assembly .slot.filled{
+    border-color:var(--green);color:var(--green);cursor:pointer;
+  }
+  .scramble-assembly .slot.empty{
+    color:var(--text-dim);
+  }
+  .scramble-pool{
+    display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;
+  }
+  .scramble-pool button.tile{
+    width:38px;height:46px;padding:0;font-size:18px;font-weight:bold;
+  }
+  .scramble-status{
+    font-size:11px;color:var(--text-dim);text-align:center;min-height:16px;margin:4px 0;letter-spacing:1px;
+  }
+  .scramble-status.err{color:var(--red);}
+
+  /* --- Vault / final combine screen --- */
+  .vault-frags{
+    display:flex;justify-content:center;gap:14px;margin:40px 0;
+    flex-wrap:wrap;
+  }
+  .vault-frags .piece{
+    border:1px solid var(--green);
+    color:var(--green);
+    font-size:26px;letter-spacing:6px;
+    padding:14px 18px;
+  }
+  .code-final{
+    text-align:center;
+    font-size:38px;
+    letter-spacing:6px;
+    color:var(--amber);
+    margin:30px 0;
+    text-shadow:0 0 20px rgba(232,179,76,0.4);
+  }
+
+  /* --- Final reveal --- */
+  #screen-final{
+    text-align:center;
+  }
+  #screen-final .heart{
+    font-size:52px;margin-bottom:10px;
+  }
+  #screen-final h1{
+    font-size:26px;
+    color:#f4b6c2;
+    text-shadow:0 0 18px rgba(244,182,194,0.4);
+  }
+  #screen-final .date-final{
+    font-size:20px;
+    letter-spacing:3px;
+    color:var(--amber);
+    margin:22px 0;
+  }
+  #screen-final p{
+    font-size:14px;line-height:1.9;color:var(--text);
+    max-width:520px;margin:0 auto 20px;
+  }
+  body.warm{
+    background:radial-gradient(ellipse at top, #1a1420 0%, #05070a 60%);
+  }
+
+  .confetti-piece{
+    position:fixed;top:-10px;
+    width:8px;height:14px;
+    z-index:10000;
+    opacity:0.9;
+    pointer-events:none;
+  }
+
+  footer-note, .small{
+    font-size:11px;color:var(--text-dim);text-align:center;margin-top:30px;
+  }
+
+  /* --- Debug --- */
+  #debug-toggle{
+    position:fixed;
+    bottom:14px;right:14px;
+    width:30px;height:30px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text-dim);
+    font-size:13px;
+    line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    opacity:0.35;
+    z-index:10001;
+    padding:0;
+  }
+  #debug-toggle:hover{opacity:1;border-color:var(--amber-dim);color:var(--amber);}
+  #debug-panel{
+    display:none;
+    position:fixed;
+    bottom:54px;right:14px;
+    width:320px;
+    max-height:70vh;
+    overflow-y:auto;
+    background:var(--panel);
+    border:1px solid var(--amber-dim);
+    padding:14px;
+    font-size:11.5px;
+    line-height:1.7;
+    color:var(--text);
+    z-index:10001;
+    box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  }
+  #debug-panel.show{display:block;}
+  #debug-panel h3{
+    margin:0 0 8px;font-size:11px;letter-spacing:1px;color:var(--amber);
+    text-transform:uppercase;
+  }
+  #debug-panel .db-file{margin-bottom:12px;border-bottom:1px dashed var(--line);padding-bottom:10px;}
+  #debug-panel .db-file:last-child{border-bottom:none;}
+  #debug-panel .db-frag{color:var(--green);}
+  #debug-panel .db-code{color:var(--amber);font-weight:bold;letter-spacing:2px;}
+  #debug-panel .db-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  #debug-panel button{
+    font-size:10px;padding:6px 8px;flex:1;min-width:120px;
+  }
+</style>
+</head>
+<body>
+
+<button id="debug-toggle" onclick="toggleDebug()" title="Debug">🛠</button>
+<div id="debug-panel"></div>
+
+<div class="wrap">
+  <div class="topbar">
+    <span>SYSTÈME&nbsp;·&nbsp;ARCHIVES INTERNES</span>
+    <span><span class="blink">●</span> ACCÈS EN COURS</span>
+  </div>
+
+  <!-- SCREEN 0 : INTRO -->
+  <div class="screen active" id="screen-intro">
+    <div class="stamp">TOP SECRET</div>
+    <h1>ARCHIVE N°44-B</h1>
+    <h2>Habilitation requise — Niveau : Ami(e) proche</h2>
+    <div id="intro-text"></div>
+    <div class="btn-row" id="intro-btn-row" style="display:none;">
+      <button onclick="goTo('screen-vault-intro')">ACCÉDER AUX DOSSIERS →</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 0.5 : VAULT INTRO -->
+  <div class="screen" id="screen-vault-intro">
+    <h1>DEUX DOSSIERS INTERCEPTÉS</h1>
+    <h2>Chaque dossier contient des mots effacés. Proposez des mots : s'ils apparaissent dans le texte, ils seront révélés partout où ils se trouvent. Chaque dossier décrypté livre un fragment de code, crypté. Une fois les deux dossiers reconstitués, tous les fragments devront être remis dans l'ordre — en une seule fois — pour révéler le code final.</h2>
+    <div class="progress-row">
+      <div class="progress-dot current" id="dot-0">DOSSIER 01</div>
+      <div class="progress-dot" id="dot-1">DOSSIER 02</div>
+    </div>
+    <div class="btn-row"><button onclick="startFile(0)">OUVRIR LE DOSSIER 01 →</button></div>
+  </div>
+
+  <!-- SCREEN : FILE (template, JS-driven) -->
+  <div class="screen" id="screen-file">
+    <div class="progress-row" id="progress-row"></div>
+    <div class="file-header">
+      <span class="id" id="file-id">DOSSIER 01</span>
+      <span class="status" id="file-status">EN COURS DE DÉCRYPTAGE</span>
+    </div>
+    <div class="logline" id="logline"></div>
+    <div class="dossier-body" id="dossier-body"></div>
+
+    <div class="guess-row">
+      <input type="text" id="guess-input" placeholder="PROPOSER UN MOT..." maxlength="30" autocomplete="off">
+      <button onclick="submitGuess()">ANALYSER</button>
+    </div>
+    <div class="hint-row">
+      <span id="blanks-left">— mots restants</span>
+      <button onclick="useHint()">DEMANDER UN INDICE</button>
+    </div>
+    <div class="log" id="log"></div>
+
+    <div class="fragment-reveal" id="fragment-reveal">
+      <div class="label">FRAGMENT DE CODE INTERCEPTÉ — CRYPTÉ</div>
+      <div class="frag-locked" id="frag-locked"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button id="next-file-btn" onclick="nextAfterFile()">CONTINUER →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN : VAULT COMBINE -->
+  <div class="screen" id="screen-combine">
+    <h1>SYNCHRONISATION FINALE</h1>
+    <h2>Tous les fragments ont été récupérés. Remettez chaque caractère à sa place pour reconstituer le code complet.</h2>
+    <div class="scramble-assembly" id="final-assembly"></div>
+    <div class="scramble-pool" id="final-pool"></div>
+    <div class="scramble-status" id="final-status"></div>
+    <div class="btn-row" id="final-reset-row" style="justify-content:center;">
+      <button onclick="resetFinalScramble()">RÉINITIALISER</button>
+    </div>
+    <div class="code-final" id="code-final" style="display:none;"></div>
+    <div class="btn-row" id="combine-btn-row" style="display:none;justify-content:center;">
+      <button onclick="revealFinal()">DÉCHIFFRER LE DOSSIER FINAL →</button>
+    </div>
+  </div>
+
+  <!-- SCREEN : FINAL -->
+  <div class="screen" id="screen-final">
+    <div class="heart">🤍</div>
+    <h1 id="final-title"></h1>
+    <p id="final-text"></p>
+    <div class="date-final" id="final-date"></div>
+    <p class="small">— Fin de la mission. Merci d'avoir décrypté ce dossier. —</p>
+  </div>
+</div>
+
+<script>
+/* ---------------- DATA ---------------- */
+
+function norm(s){
+  return s.toString().trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+
+const files = [
+  {
+    id: "DOSSIER 01 — LUNE",
+    fragment: "FÉVR",
+    logline: "Journal de filature — entrée n°12",
+    paragraphs: [
+      "Depuis plusieurs semaines, LUNE ne répond plus aux sorties du {SAMEDI} matin. Les sentiers qu'elle parcourait autrefois sont restés silencieux, et son sac de sport dort au fond d'un placard, intact.",
+      "SOLEIL, de son côté, a été aperçu portant plusieurs sacs marqués d'un logo de {LIVRAISON} en une seule soirée. L'activité nocturne, pourtant plutôt animée autrefois, est passée à du {NEANT} total après 21h."
+    ],
+    blanks: {
+      SAMEDI: {display:"SAMEDI"},
+      LIVRAISON: {display:"LIVRAISON"},
+      NEANT: {display:"NÉANT"}
+    }
+  },
+  {
+    id: "DOSSIER 02 — SOLEIL",
+    fragment: "2027",
+    logline: "Journal de filature — entrée n°26",
+    paragraphs: [
+      "Un rendez-vous revient toutes les trois semaines, toujours à heure fixe, dans un lieu que personne n'a su identifier. LUNE et SOLEIL en ressortent chaque fois avec un petit {DOCUMENT} épais, qu'ils rangent aussitôt à l'abri des regards.",
+      "Une série de {RECHERCHES} nocturnes a été repérée sur l'ordinateur commun — des dizaines d'onglets ouverts sur des sujets variés, tous refermés avant le lever du jour."
+    ],
+    blanks: {
+      DOCUMENT: {display:"DOCUMENT"},
+      RECHERCHES: {display:"RECHERCHES"}
+    }
+  }
+];
+
+let currentFileIndex = 0;
+let state = {}; // per-file solved keys
+
+/* ---------------- INTRO TYPEWRITER ---------------- */
+const introLines = [
+"...signal capté.",
+"...archive localisée.",
+"",
+"Il y a des choses que l'on ne voit pas tout de suite.",
+"Certaines se cachent dans le silence. D'autres dans les habitudes qui changent, une à une, sans bruit.",
+"",
+"Depuis quelque temps, deux êtres sont observés.",
+"On ne connaît ni leurs noms, ni leurs visages — seulement deux noms de code : LUNE. et SOLEIL.",
+"",
+"Deux documents ont été rassemblés à leur sujet.",
+"Chacun scellé. Chacun incomplet. Chacun porteur d'un fragment de vérité.",
+"",
+"Ce qui se prépare n'a pas encore de nom.",
+"Mais vous avez été choisi(e) pour l'approcher.",
+"",
+"Regardez de plus près."
+];
+
+function typeIntro(){
+  const el = document.getElementById('intro-text');
+  let lineIdx = 0, charIdx = 0;
+  el.innerHTML = '';
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+
+  function typeChar(){
+    if(lineIdx >= introLines.length){
+      cursor.remove();
+      document.getElementById('intro-btn-row').style.display = 'flex';
+      return;
+    }
+    const line = introLines[lineIdx];
+    if(charIdx === 0){
+      el.appendChild(document.createTextNode(''));
+    }
+    if(charIdx < line.length){
+      el.lastChild.nodeType === 3 ? null : null;
+      el.textContent += line[charIdx];
+      charIdx++;
+      setTimeout(typeChar, 14 + Math.random()*18);
+    } else {
+      el.textContent += '\n';
+      lineIdx++;
+      charIdx = 0;
+      setTimeout(typeChar, line === '' ? 80 : 220);
+    }
+  }
+  typeChar();
+}
+
+/* ---------------- NAVIGATION ---------------- */
+function goTo(screenId){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function updateDots(){
+  for(let i=0;i<files.length;i++){
+    const d = document.getElementById('dot-'+i);
+    if(!d) continue;
+    d.classList.remove('current','done');
+    if(i < currentFileIndex) d.classList.add('done');
+    else if(i === currentFileIndex) d.classList.add('current');
+  }
+}
+
+/* ---------------- FILE RENDERING ---------------- */
+function startFile(idx){
+  currentFileIndex = idx;
+  const f = files[idx];
+  state[idx] = state[idx] || {solved:new Set()};
+
+  document.getElementById('file-id').textContent = f.id;
+  document.getElementById('file-status').textContent = 'EN COURS DE DÉCRYPTAGE';
+  document.getElementById('logline').textContent = f.logline || '';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('guess-input').value = '';
+  document.getElementById('fragment-reveal').classList.remove('show');
+
+  renderProgressRow();
+  renderDossier(f, idx);
+  updateBlanksLeft(f, idx);
+
+  goTo('screen-file');
+  document.getElementById('guess-input').focus();
+}
+
+function renderProgressRow(){
+  const row = document.getElementById('progress-row');
+  row.innerHTML = '';
+  for(let i=0;i<files.length;i++){
+    const div = document.createElement('div');
+    div.className = 'progress-dot';
+    if(i < currentFileIndex) div.classList.add('done');
+    else if(i === currentFileIndex) div.classList.add('current');
+    div.textContent = 'DOSSIER 0'+(i+1);
+    row.appendChild(div);
+  }
+}
+
+function renderDossier(f, idx){
+  const solved = state[idx].solved;
+  const body = document.getElementById('dossier-body');
+  body.innerHTML = '';
+  f.paragraphs.forEach(p=>{
+    const pEl = document.createElement('p');
+    pEl.style.margin = '0 0 16px';
+    const parts = p.split(/(\{[A-ZÉÈÀ0-9]+\})/g);
+    parts.forEach(part=>{
+      const m = part.match(/^\{([A-ZÉÈÀ0-9]+)\}$/);
+      if(m){
+        const key = m[1];
+        const info = f.blanks[key];
+        const span = document.createElement('span');
+        const isSolved = solved.has(key);
+        span.className = 'blank' + (isSolved ? ' revealed' : '');
+        span.textContent = isSolved ? info.display : '█'.repeat(info.display.length);
+        pEl.appendChild(span);
+      } else if(part){
+        pEl.appendChild(document.createTextNode(part));
+      }
+    });
+    body.appendChild(pEl);
+  });
+}
+
+function updateBlanksLeft(f, idx){
+  const total = Object.keys(f.blanks).length;
+  const solved = state[idx].solved.size;
+  document.getElementById('blanks-left').textContent =
+    solved + ' / ' + total + ' mots décryptés';
+}
+
+function log(msg, cls){
+  const l = document.getElementById('log');
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  l.prepend(line);
+}
+
+function submitGuess(){
+  const input = document.getElementById('guess-input');
+  const raw = input.value;
+  if(!raw.trim()) return;
+  const guess = norm(raw);
+  const f = files[currentFileIndex];
+  const solved = state[currentFileIndex].solved;
+
+  let matchKey = null;
+  for(const key in f.blanks){
+    if(solved.has(key)) continue;
+    if(norm(key) === guess || norm(f.blanks[key].display) === guess){
+      matchKey = key;
+      break;
+    }
+  }
+
+  if(matchKey){
+    solved.add(matchKey);
+    log('> TENTATIVE : "'+raw.toUpperCase()+'" — CORRESPONDANCE TROUVÉE', 'ok');
+    renderDossier(f, currentFileIndex);
+    updateBlanksLeft(f, currentFileIndex);
+    input.value = '';
+
+    if(solved.size === Object.keys(f.blanks).length){
+      onFileComplete(f);
+    }
+  } else {
+    log('> TENTATIVE : "'+raw.toUpperCase()+'" — ÉCHEC', 'no');
+    input.value = '';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('guess-input')?.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') submitGuess();
+  });
+  typeIntro();
+});
+
+function useHint(){
+  const f = files[currentFileIndex];
+  const solved = state[currentFileIndex].solved;
+  const remaining = Object.keys(f.blanks).filter(k=>!solved.has(k));
+  if(remaining.length === 0) return;
+  const key = remaining[Math.floor(Math.random()*remaining.length)];
+  const display = f.blanks[key].display;
+  log('> INDICE : le mot commence par "'+display[0]+'" et contient '+display.length+' lettres.');
+}
+
+function onFileComplete(f){
+  document.getElementById('file-status').textContent = 'DÉCRYPTAGE TERMINÉ';
+  document.getElementById('frag-locked').textContent = '▓ '.repeat(f.fragment.length).trim();
+  document.getElementById('fragment-reveal').classList.add('show');
+  log('> DOSSIER ENTIÈREMENT DÉCRYPTÉ. FRAGMENT DE CODE INTERCEPTÉ — CRYPTÉ.', 'ok');
+}
+
+function nextAfterFile(){
+  if(currentFileIndex < files.length - 1){
+    startFile(currentFileIndex + 1);
+  } else {
+    goTo('screen-combine');
+    setTimeout(initFinalScramble, 400);
+  }
+}
+
+/* ---------------- FINAL SCRAMBLE PUZZLE (all fragments, combined) ---------------- */
+let finalScrambleState = null;
+
+function initFinalScramble(){
+  const target = files.map(f=>f.fragment).join('');
+  const chars = target.split('');
+  const tiles = chars.map((c,i)=>({id:i, char:c}));
+  for(let i=tiles.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [tiles[i],tiles[j]] = [tiles[j],tiles[i]];
+  }
+  finalScrambleState = {tiles, assembly:[], target, solved:false};
+  document.getElementById('final-reset-row').style.display = 'flex';
+  document.getElementById('code-final').style.display = 'none';
+  document.getElementById('combine-btn-row').style.display = 'none';
+  const statusEl = document.getElementById('final-status');
+  statusEl.textContent = '';
+  statusEl.className = 'scramble-status';
+  renderFinalScramble();
+}
+
+function renderFinalScramble(){
+  if(!finalScrambleState) return;
+  const poolEl = document.getElementById('final-pool');
+  const assemblyEl = document.getElementById('final-assembly');
+  poolEl.innerHTML = '';
+  assemblyEl.innerHTML = '';
+
+  finalScrambleState.tiles.forEach(t=>{
+    if(finalScrambleState.assembly.includes(t.id)) return;
+    const btn = document.createElement('button');
+    btn.className = 'tile';
+    btn.textContent = t.char;
+    btn.onclick = ()=>pickFinalTile(t.id);
+    poolEl.appendChild(btn);
+  });
+
+  for(let pos=0; pos<finalScrambleState.tiles.length; pos++){
+    const slot = document.createElement('div');
+    const tileId = finalScrambleState.assembly[pos];
+    if(tileId !== undefined){
+      const t = finalScrambleState.tiles.find(x=>x.id===tileId);
+      slot.className = 'slot filled';
+      slot.textContent = t.char;
+      slot.onclick = ()=>unpickFinalTile(pos);
+    } else {
+      slot.className = 'slot empty';
+      slot.textContent = '_';
+    }
+    assemblyEl.appendChild(slot);
+  }
+}
+
+function pickFinalTile(id){
+  if(!finalScrambleState || finalScrambleState.solved) return;
+  if(finalScrambleState.assembly.length >= finalScrambleState.tiles.length) return;
+  finalScrambleState.assembly.push(id);
+  renderFinalScramble();
+  if(finalScrambleState.assembly.length === finalScrambleState.tiles.length){
+    checkFinalScramble();
+  }
+}
+
+function unpickFinalTile(pos){
+  if(!finalScrambleState || finalScrambleState.solved) return;
+  finalScrambleState.assembly.splice(pos,1);
+  renderFinalScramble();
+}
+
+function resetFinalScramble(){
+  if(!finalScrambleState || finalScrambleState.solved) return;
+  finalScrambleState.assembly = [];
+  renderFinalScramble();
+  const statusEl = document.getElementById('final-status');
+  statusEl.textContent = '';
+  statusEl.className = 'scramble-status';
+}
+
+function checkFinalScramble(){
+  const assembled = finalScrambleState.assembly.map(id=>finalScrambleState.tiles.find(t=>t.id===id).char).join('');
+  const statusEl = document.getElementById('final-status');
+  if(norm(assembled) === norm(finalScrambleState.target)){
+    finalScrambleState.solved = true;
+    statusEl.textContent = '';
+    document.getElementById('final-reset-row').style.display = 'none';
+    const pretty = files.map(f=>f.fragment).join(' '); // FÉVR 2027
+    const codeEl = document.getElementById('code-final');
+    codeEl.textContent = pretty;
+    codeEl.style.display = 'block';
+    document.getElementById('combine-btn-row').style.display = 'flex';
+  } else {
+    statusEl.textContent = 'ORDRE INCORRECT — NOUVELLE TENTATIVE...';
+    statusEl.className = 'scramble-status err';
+    setTimeout(()=>{
+      if(!finalScrambleState || finalScrambleState.solved) return;
+      finalScrambleState.assembly = [];
+      renderFinalScramble();
+      statusEl.textContent = '';
+      statusEl.className = 'scramble-status';
+    }, 900);
+  }
+}
+
+function revealFinal(){
+  document.body.classList.add('warm');
+  document.getElementById('final-title').textContent = "DOSSIER CLOS.";
+  document.getElementById('final-text').innerHTML =
+    "Pas de scandale. Pas de crise. Pas de secret inquiétant.<br><br>" +
+    "Juste un petit cœur supplémentaire qui bat désormais sous leur toit.<br>" +
+    "Elina &amp; Matt vous annoncent l'arrivée d'un nouveau membre de la famille — bientôt, l'équipe passera de deux à trois.";
+  document.getElementById('final-date').textContent = "ARRIVÉE ESTIMÉE : FÉVRIER 2027";
+  goTo('screen-final');
+  launchConfetti();
+}
+
+/* ---------------- CONFETTI ---------------- */
+function launchConfetti(){
+  const colors = ['#f4b6c2','#e8b34c','#4fd68c','#c9d1d9','#f7d9de'];
+  for(let i=0;i<70;i++){
+    setTimeout(()=>{
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random()*100+'vw';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.transform = 'rotate('+(Math.random()*360)+'deg)';
+      document.body.appendChild(el);
+      const duration = 2200 + Math.random()*1800;
+      el.animate([
+        {transform: el.style.transform, top:'-10px', opacity:1},
+        {transform: 'translateY(100vh) rotate('+(Math.random()*720)+'deg)', opacity:0.9}
+      ], {duration:duration, easing:'ease-in'});
+      setTimeout(()=>el.remove(), duration+100);
+    }, i*40);
+  }
+}
+
+/* ---------------- DEBUG ---------------- */
+function buildDebugPanel(){
+  const panel = document.getElementById('debug-panel');
+  const prettyCode = files.map(f=>f.fragment).join(' ');
+
+  let html = '<h3>Debug — réponses</h3>';
+  files.forEach((f,i)=>{
+    html += '<div class="db-file"><strong>'+f.id+'</strong> — fragment : <span class="db-frag">'+f.fragment+'</span><br>';
+    Object.keys(f.blanks).forEach(k=>{
+      html += '&nbsp;&nbsp;• '+f.blanks[k].display+'<br>';
+    });
+    html += '</div>';
+  });
+  html += '<div>Code final : <span class="db-code">'+prettyCode+'</span></div>';
+  html += '<div class="db-actions">'+
+    '<button onclick="debugSolveCurrent()">Résoudre dossier en cours</button>'+
+    '<button onclick="debugJump(\'screen-combine\'); initFinalScramble();">Aller à la combinaison</button>'+
+    '<button onclick="debugSolveFinal()">Résoudre le code final</button>'+
+    '<button onclick="debugJump(\'screen-final\'); revealFinal();">Aller à la révélation</button>'+
+    '<button onclick="debugRestart()">Recommencer depuis le début</button>'+
+    '</div>';
+  panel.innerHTML = html;
+}
+
+function toggleDebug(){
+  const panel = document.getElementById('debug-panel');
+  if(!panel.classList.contains('show')) buildDebugPanel();
+  panel.classList.toggle('show');
+}
+
+function debugSolveCurrent(){
+  const screenFile = document.getElementById('screen-file');
+  if(!screenFile.classList.contains('active')) return;
+  const f = files[currentFileIndex];
+  state[currentFileIndex] = state[currentFileIndex] || {solved:new Set()};
+  Object.keys(f.blanks).forEach(k=>state[currentFileIndex].solved.add(k));
+  renderDossier(f, currentFileIndex);
+  updateBlanksLeft(f, currentFileIndex);
+  onFileComplete(f);
+}
+
+function debugSolveFinal(){
+  if(!document.getElementById('screen-combine').classList.contains('active')){
+    goTo('screen-combine');
+  }
+  if(!finalScrambleState) initFinalScramble();
+  finalScrambleState.assembly = finalScrambleState.tiles.map(t=>t.id).sort((a,b)=>a-b);
+  renderFinalScramble();
+  checkFinalScramble();
+}
+
+function debugJump(screenId){
+  goTo(screenId);
+}
+
+function debugRestart(){
+  location.reload();
+}
+</script>
+</body>
+</html>
