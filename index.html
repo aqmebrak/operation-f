@@ -202,22 +202,32 @@
   }
   @keyframes pop{0%{transform:scale(1.15);}100%{transform:scale(1);}}
 
-  .guess-row{
-    margin-top:22px;
-    display:flex;gap:10px;flex-wrap:wrap;
-  }
-  .guess-row input{
-    flex:1;min-width:200px;
-    background:var(--panel);
-    border:1px solid var(--line);
+  .blank-input{
+    display:inline-block;
+    background:#111;
+    border:none;
+    border-bottom:2px solid var(--red);
     color:var(--amber);
     font-family:inherit;
-    font-size:14px;
-    padding:12px 14px;
-    letter-spacing:1px;
+    font-size:inherit;
+    letter-spacing:2px;
+    text-align:center;
     text-transform:uppercase;
+    padding:1px 4px;
+    margin:0 1px;
+    outline:none;
+    transition:all .25s;
   }
-  .guess-row input:focus{outline:none;border-color:var(--amber-dim);}
+  .blank-input::placeholder{color:var(--text-dim);opacity:0.6;}
+  .blank-input:focus{border-bottom-color:var(--amber);background:#161b22;}
+  .blank-input.wrong{
+    border-bottom-color:var(--red);
+    animation:shake .3s;
+  }
+  @keyframes shake{
+    25%{transform:translateX(-4px);}
+    75%{transform:translateX(4px);}
+  }
 
   .log{
     margin-top:16px;
@@ -434,10 +444,6 @@
     <div class="logline" id="logline"></div>
     <div class="dossier-body" id="dossier-body"></div>
 
-    <div class="guess-row">
-      <input type="text" id="guess-input" placeholder="PROPOSER UN MOT..." maxlength="30" autocomplete="off">
-      <button onclick="submitGuess()">ANALYSER</button>
-    </div>
     <div class="hint-row">
       <span id="blanks-left">— mots restants</span>
       <button onclick="useHint()">DEMANDER UN INDICE</button>
@@ -490,7 +496,7 @@ function norm(s){
 const files = [
   {
     id: "DOSSIER 01 — LUNE",
-    fragment: "FÉVR",
+    fragment: "FÉVRIER",
     logline: "Journal de filature — entrée n°12",
     paragraphs: [
       "Depuis plusieurs semaines, LUNE ne répond plus aux sorties du {SAMEDI} matin. Les sentiers qu'elle parcourait autrefois sont restés silencieux, et son sac de sport dort au fond d'un placard, intact.",
@@ -519,6 +525,7 @@ const files = [
 
 let currentFileIndex = 0;
 let state = {}; // per-file solved keys
+let focusedBlank = null; // {idx, key} — the blank input currently focused, used by useHint()
 
 /* ---------------- INTRO TYPEWRITER ---------------- */
 const introLines = [
@@ -594,12 +601,12 @@ function startFile(idx){
   currentFileIndex = idx;
   const f = files[idx];
   state[idx] = state[idx] || {solved:new Set()};
+  focusedBlank = null;
 
   document.getElementById('file-id').textContent = f.id;
   document.getElementById('file-status').textContent = 'EN COURS DE DÉCRYPTAGE';
   document.getElementById('logline').textContent = f.logline || '';
   document.getElementById('log').innerHTML = '';
-  document.getElementById('guess-input').value = '';
   document.getElementById('fragment-reveal').classList.remove('show');
 
   renderProgressRow();
@@ -607,7 +614,7 @@ function startFile(idx){
   updateBlanksLeft(f, idx);
 
   goTo('screen-file');
-  document.getElementById('guess-input').focus();
+  focusFirstBlank();
 }
 
 function renderProgressRow(){
@@ -636,17 +643,84 @@ function renderDossier(f, idx){
       if(m){
         const key = m[1];
         const info = f.blanks[key];
-        const span = document.createElement('span');
         const isSolved = solved.has(key);
-        span.className = 'blank' + (isSolved ? ' revealed' : '');
-        span.textContent = isSolved ? info.display : '█'.repeat(info.display.length);
-        pEl.appendChild(span);
+        if(isSolved){
+          const span = document.createElement('span');
+          span.className = 'blank revealed';
+          span.textContent = info.display;
+          pEl.appendChild(span);
+        } else {
+          pEl.appendChild(buildBlankInput(idx, key, info));
+        }
       } else if(part){
         pEl.appendChild(document.createTextNode(part));
       }
     });
     body.appendChild(pEl);
   });
+}
+
+function buildBlankInput(idx, key, info){
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'blank-input';
+  input.dataset.key = key;
+  input.placeholder = '_'.repeat(info.display.length);
+  input.maxLength = info.display.length + 2;
+  input.autocomplete = 'off';
+  input.autocapitalize = 'characters';
+  input.autocorrect = 'off';
+  input.spellcheck = false;
+  input.setAttribute('inputmode', 'text');
+  input.style.width = (info.display.length + 2) + 'ch';
+
+  input.addEventListener('focus', function(){
+    focusedBlank = {idx, key};
+    setTimeout(()=>input.scrollIntoView({block:'center', behavior:'smooth'}), 250);
+  });
+  input.addEventListener('input', function(){
+    input.classList.remove('wrong');
+    checkBlankInput(idx, key, input);
+  });
+  input.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    if(checkBlankInput(idx, key, input)) return;
+    const raw = input.value;
+    if(raw.trim()) log('> TENTATIVE : "'+raw.toUpperCase()+'" — ÉCHEC', 'no');
+    input.classList.add('wrong');
+    setTimeout(()=>input.classList.remove('wrong'), 300);
+  });
+
+  return input;
+}
+
+function checkBlankInput(idx, key, input){
+  const f = files[idx];
+  const info = f.blanks[key];
+  const guess = norm(input.value);
+  if(!guess) return false;
+  if(guess !== norm(key) && guess !== norm(info.display)) return false;
+
+  const raw = input.value;
+  state[idx].solved.add(key);
+  log('> TENTATIVE : "'+raw.toUpperCase()+'" — CORRESPONDANCE TROUVÉE', 'ok');
+  if(focusedBlank && focusedBlank.idx === idx && focusedBlank.key === key) focusedBlank = null;
+
+  renderDossier(f, idx);
+  updateBlanksLeft(f, idx);
+
+  if(state[idx].solved.size === Object.keys(f.blanks).length){
+    onFileComplete(f);
+  } else {
+    focusFirstBlank();
+  }
+  return true;
+}
+
+function focusFirstBlank(){
+  const input = document.querySelector('#dossier-body .blank-input');
+  if(input) input.focus();
 }
 
 function updateBlanksLeft(f, idx){
@@ -664,43 +738,7 @@ function log(msg, cls){
   l.prepend(line);
 }
 
-function submitGuess(){
-  const input = document.getElementById('guess-input');
-  const raw = input.value;
-  if(!raw.trim()) return;
-  const guess = norm(raw);
-  const f = files[currentFileIndex];
-  const solved = state[currentFileIndex].solved;
-
-  let matchKey = null;
-  for(const key in f.blanks){
-    if(solved.has(key)) continue;
-    if(norm(key) === guess || norm(f.blanks[key].display) === guess){
-      matchKey = key;
-      break;
-    }
-  }
-
-  if(matchKey){
-    solved.add(matchKey);
-    log('> TENTATIVE : "'+raw.toUpperCase()+'" — CORRESPONDANCE TROUVÉE', 'ok');
-    renderDossier(f, currentFileIndex);
-    updateBlanksLeft(f, currentFileIndex);
-    input.value = '';
-
-    if(solved.size === Object.keys(f.blanks).length){
-      onFileComplete(f);
-    }
-  } else {
-    log('> TENTATIVE : "'+raw.toUpperCase()+'" — ÉCHEC', 'no');
-    input.value = '';
-  }
-}
-
 document.addEventListener('DOMContentLoaded', function(){
-  document.getElementById('guess-input')?.addEventListener('keydown', function(e){
-    if(e.key === 'Enter') submitGuess();
-  });
   typeIntro();
 });
 
@@ -709,9 +747,18 @@ function useHint(){
   const solved = state[currentFileIndex].solved;
   const remaining = Object.keys(f.blanks).filter(k=>!solved.has(k));
   if(remaining.length === 0) return;
-  const key = remaining[Math.floor(Math.random()*remaining.length)];
+
+  let key;
+  if(focusedBlank && focusedBlank.idx === currentFileIndex && remaining.includes(focusedBlank.key)){
+    key = focusedBlank.key;
+  } else {
+    key = remaining[Math.floor(Math.random()*remaining.length)];
+  }
+
   const display = f.blanks[key].display;
   log('> INDICE : le mot commence par "'+display[0]+'" et contient '+display.length+' lettres.');
+  const input = document.querySelector('#dossier-body .blank-input[data-key="'+key+'"]');
+  if(input) input.focus();
 }
 
 function onFileComplete(f){
@@ -815,7 +862,7 @@ function checkFinalScramble(){
     finalScrambleState.solved = true;
     statusEl.textContent = '';
     document.getElementById('final-reset-row').style.display = 'none';
-    const pretty = files.map(f=>f.fragment).join(' '); // FÉVR 2027
+    const pretty = files.map(f=>f.fragment).join(' / '); // FÉVRIER / 2027
     const codeEl = document.getElementById('code-final');
     codeEl.textContent = pretty;
     codeEl.style.display = 'block';
@@ -869,7 +916,7 @@ function launchConfetti(){
 /* ---------------- DEBUG ---------------- */
 function buildDebugPanel(){
   const panel = document.getElementById('debug-panel');
-  const prettyCode = files.map(f=>f.fragment).join(' ');
+  const prettyCode = files.map(f=>f.fragment).join(' / ');
 
   let html = '<h3>Debug — réponses</h3>';
   files.forEach((f,i)=>{
