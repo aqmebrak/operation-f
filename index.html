@@ -128,28 +128,6 @@
   button:disabled{opacity:0.3;cursor:not-allowed;}
   .btn-row{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap;}
 
-  /* --- Dossier progress --- */
-  .progress-row{
-    display:flex;gap:10px;margin-bottom:24px;
-  }
-  .progress-dot{
-    flex:1;
-    border:1px solid var(--line);
-    padding:10px 8px;
-    text-align:center;
-    font-size:10px;
-    letter-spacing:1px;
-    color:var(--text-dim);
-  }
-  .progress-dot.done{
-    border-color:var(--green);
-    color:var(--green);
-  }
-  .progress-dot.current{
-    border-color:var(--amber);
-    color:var(--amber);
-  }
-
   .file-header{
     display:flex;justify-content:space-between;align-items:baseline;
     border-bottom:1px dashed var(--line);
@@ -425,20 +403,15 @@
 
   <!-- SCREEN 0.5 : VAULT INTRO -->
   <div class="screen" id="screen-vault-intro">
-    <h1>DEUX DOSSIERS INTERCEPTÉS</h1>
-    <h2>Chaque dossier contient des mots effacés. Proposez des mots : s'ils apparaissent dans le texte, ils seront révélés partout où ils se trouvent. Chaque dossier décrypté livre un fragment de code, crypté. Une fois les deux dossiers reconstitués, tous les fragments devront être remis dans l'ordre — en une seule fois — pour révéler le code final.</h2>
-    <div class="progress-row">
-      <div class="progress-dot current" id="dot-0">DOSSIER 01</div>
-      <div class="progress-dot" id="dot-1">DOSSIER 02</div>
-    </div>
-    <div class="btn-row"><button onclick="startFile(0)">OUVRIR LE DOSSIER 01 →</button></div>
+    <h1>UN DOSSIER INTERCEPTÉ</h1>
+    <h2>Le dossier contient des mots effacés. Proposez des mots : s'ils apparaissent dans le texte, ils seront révélés partout où ils se trouvent. Une fois le dossier entièrement décrypté, le code sera débloqué — direction l'écran suivant pour le reconstituer, caractère par caractère.</h2>
+    <div class="btn-row"><button onclick="startFile(0)">OUVRIR LE DOSSIER →</button></div>
   </div>
 
   <!-- SCREEN : FILE (template, JS-driven) -->
   <div class="screen" id="screen-file">
-    <div class="progress-row" id="progress-row"></div>
     <div class="file-header">
-      <span class="id" id="file-id">DOSSIER 01</span>
+      <span class="id" id="file-id">DOSSIER</span>
       <span class="status" id="file-status">EN COURS DE DÉCRYPTAGE</span>
     </div>
     <div class="logline" id="logline"></div>
@@ -451,7 +424,7 @@
     <div class="log" id="log"></div>
 
     <div class="fragment-reveal" id="fragment-reveal">
-      <div class="label">FRAGMENT DE CODE INTERCEPTÉ — CRYPTÉ</div>
+      <div class="label">CODE INTERCEPTÉ — CRYPTÉ</div>
       <div class="frag-locked" id="frag-locked"></div>
       <div class="btn-row" style="justify-content:center;">
         <button id="next-file-btn" onclick="nextAfterFile()">CONTINUER →</button>
@@ -462,7 +435,7 @@
   <!-- SCREEN : VAULT COMBINE -->
   <div class="screen" id="screen-combine">
     <h1>SYNCHRONISATION FINALE</h1>
-    <h2>Tous les fragments ont été récupérés. Remettez chaque caractère à sa place pour reconstituer le code complet.</h2>
+    <h2>Le code a été intercepté, crypté. Remettez chaque caractère à sa place pour le reconstituer.</h2>
     <div class="scramble-assembly" id="final-assembly"></div>
     <div class="scramble-pool" id="final-pool"></div>
     <div class="scramble-status" id="final-status"></div>
@@ -493,30 +466,24 @@ function norm(s){
     .normalize('NFD').replace(/[̀-ͯ]/g,'');
 }
 
+const CODE_WORD = "FÉVRIER";
+const CODE_DATE = "2027";
+
 const files = [
   {
-    id: "DOSSIER 01 — LUNE",
-    fragment: "FÉVRIER",
-    logline: "Journal de filature — entrée n°12",
+    id: "DOSSIER — LUNE & SOLEIL",
+    fragment: CODE_WORD + CODE_DATE,
+    logline: "Journal de filature — dossier complet",
     paragraphs: [
       "Depuis plusieurs semaines, LUNE ne répond plus aux sorties du {SAMEDI} matin. Les sentiers qu'elle parcourait autrefois sont restés silencieux, et son sac de sport dort au fond d'un placard, intact.",
-      "SOLEIL, de son côté, a été aperçu portant un sac de {LIVRAISON} plusieurs soirées de suite. L'activité nocturne, pourtant plutôt animée autrefois, est passée à {ZERO} total après 21h."
-    ],
-    blanks: {
-      SAMEDI: {display:"SAMEDI"},
-      LIVRAISON: {display:"LIVRAISON"},
-      ZERO: {display:"ZÉRO"}
-    }
-  },
-  {
-    id: "DOSSIER 02 — SOLEIL",
-    fragment: "2027",
-    logline: "Journal de filature — entrée n°26",
-    paragraphs: [
+      "SOLEIL, de son côté, a été aperçu portant un sac de {LIVRAISON} plusieurs soirées de suite. L'activité nocturne, pourtant plutôt animée autrefois, est passée à {ZERO} total après 21h.",
       "Un rendez-vous revient toutes les trois semaines, toujours à heure fixe, dans un lieu que personne n'a su identifier. LUNE et SOLEIL en ressortent chaque fois avec un petit {DOSSIER} épais, qu'ils rangent aussitôt à l'abri des regards.",
       "Une série de {RECHERCHES} nocturnes a été repérée sur l'ordinateur commun — des dizaines d'onglets ouverts sur des sujets variés, tous refermés avant le lever du jour."
     ],
     blanks: {
+      SAMEDI: {display:"SAMEDI"},
+      LIVRAISON: {display:"LIVRAISON"},
+      ZERO: {display:"ZÉRO"},
       DOSSIER: {display:"DOSSIER"},
       RECHERCHES: {display:"RECHERCHES"}
     }
@@ -538,8 +505,8 @@ const introLines = [
 "Depuis quelque temps, deux êtres sont observés.",
 "On ne connaît ni leurs noms, ni leurs visages — seulement deux noms de code : LUNE. et SOLEIL.",
 "",
-"Deux documents ont été rassemblés à leur sujet.",
-"Chacun scellé. Chacun incomplet. Chacun porteur d'un fragment de vérité.",
+"Un dossier a été rassemblé à leur sujet.",
+"Scellé. Incomplet. Porteur d'un fragment de vérité.",
 "",
 "Ce qui se prépare n'a pas encore de nom.",
 "Mais vous avez été choisi(e) pour l'approcher.",
@@ -586,16 +553,6 @@ function goTo(screenId){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function updateDots(){
-  for(let i=0;i<files.length;i++){
-    const d = document.getElementById('dot-'+i);
-    if(!d) continue;
-    d.classList.remove('current','done');
-    if(i < currentFileIndex) d.classList.add('done');
-    else if(i === currentFileIndex) d.classList.add('current');
-  }
-}
-
 /* ---------------- FILE RENDERING ---------------- */
 function startFile(idx){
   currentFileIndex = idx;
@@ -609,25 +566,11 @@ function startFile(idx){
   document.getElementById('log').innerHTML = '';
   document.getElementById('fragment-reveal').classList.remove('show');
 
-  renderProgressRow();
   renderDossier(f, idx);
   updateBlanksLeft(f, idx);
 
   goTo('screen-file');
   focusFirstBlank();
-}
-
-function renderProgressRow(){
-  const row = document.getElementById('progress-row');
-  row.innerHTML = '';
-  for(let i=0;i<files.length;i++){
-    const div = document.createElement('div');
-    div.className = 'progress-dot';
-    if(i < currentFileIndex) div.classList.add('done');
-    else if(i === currentFileIndex) div.classList.add('current');
-    div.textContent = 'DOSSIER 0'+(i+1);
-    row.appendChild(div);
-  }
 }
 
 function renderDossier(f, idx){
@@ -765,7 +708,7 @@ function onFileComplete(f){
   document.getElementById('file-status').textContent = 'DÉCRYPTAGE TERMINÉ';
   document.getElementById('frag-locked').textContent = '▓ '.repeat(f.fragment.length).trim();
   document.getElementById('fragment-reveal').classList.add('show');
-  log('> DOSSIER ENTIÈREMENT DÉCRYPTÉ. FRAGMENT DE CODE INTERCEPTÉ — CRYPTÉ.', 'ok');
+  log('> DOSSIER ENTIÈREMENT DÉCRYPTÉ. CODE INTERCEPTÉ — CRYPTÉ.', 'ok');
 }
 
 function nextAfterFile(){
@@ -862,7 +805,7 @@ function checkFinalScramble(){
     finalScrambleState.solved = true;
     statusEl.textContent = '';
     document.getElementById('final-reset-row').style.display = 'none';
-    const pretty = files.map(f=>f.fragment).join(' / '); // FÉVRIER / 2027
+    const pretty = CODE_WORD + ' / ' + CODE_DATE; // FÉVRIER / 2027
     const codeEl = document.getElementById('code-final');
     codeEl.textContent = pretty;
     codeEl.style.display = 'block';
@@ -916,7 +859,7 @@ function launchConfetti(){
 /* ---------------- DEBUG ---------------- */
 function buildDebugPanel(){
   const panel = document.getElementById('debug-panel');
-  const prettyCode = files.map(f=>f.fragment).join(' / ');
+  const prettyCode = CODE_WORD + ' / ' + CODE_DATE;
 
   let html = '<h3>Debug — réponses</h3>';
   files.forEach((f,i)=>{
