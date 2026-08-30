@@ -218,6 +218,43 @@
     pointer-events:none;
   }
 
+  .blank-slot{
+    display:inline-flex;
+    align-items:center;
+    vertical-align:middle;
+  }
+  .blank-hint{
+    position:relative;
+    display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:16px;
+    margin:0 0 0 4px;
+    padding:0;
+    border:1px solid var(--text-dim);
+    border-radius:50%;
+    background:transparent;
+    color:var(--text-dim);
+    font-size:10px;
+    font-weight:normal;
+    letter-spacing:normal;
+    text-transform:none;
+    flex:none;
+    transition:all .2s;
+  }
+  .blank-hint::before{
+    content:"";
+    position:absolute;
+    inset:-10px;
+  }
+  .blank-hint:hover,.blank-hint:active{
+    color:var(--amber);border-color:var(--amber-dim);background:rgba(232,179,76,0.08);
+  }
+
+  @media (max-width:640px){
+    .blank-input{font-size:16px;}
+    .blank-wrap{padding:3px 6px;}
+    .blank-hint{width:20px;height:20px;font-size:11px;margin-left:5px;}
+  }
+
   .log{
     margin-top:16px;
     font-size:11.5px;
@@ -581,7 +618,11 @@ function startFile(idx){
   updateBlanksLeft(f, idx);
 
   goTo('screen-file');
-  focusFirstBlank();
+  if(!isTouchDevice()) focusNextRemainingBlank();
+}
+
+function isTouchDevice(){
+  return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 }
 
 function renderDossier(f, idx){
@@ -598,14 +639,7 @@ function renderDossier(f, idx){
         const key = m[1];
         const info = f.blanks[key];
         const isSolved = solved.has(key);
-        if(isSolved){
-          const span = document.createElement('span');
-          span.className = 'blank revealed';
-          span.textContent = info.display;
-          pEl.appendChild(span);
-        } else {
-          pEl.appendChild(buildBlankInput(idx, key, info));
-        }
+        pEl.appendChild(isSolved ? buildRevealedSpan(info) : buildBlankSlot(idx, key, info));
       } else if(part){
         pEl.appendChild(document.createTextNode(part));
       }
@@ -614,7 +648,18 @@ function renderDossier(f, idx){
   });
 }
 
-function buildBlankInput(idx, key, info){
+function buildRevealedSpan(info){
+  const span = document.createElement('span');
+  span.className = 'blank revealed';
+  span.textContent = info.display;
+  return span;
+}
+
+function buildBlankSlot(idx, key, info){
+  const slot = document.createElement('span');
+  slot.className = 'blank-slot';
+  slot.dataset.key = key;
+
   const wrap = document.createElement('span');
   wrap.className = 'blank-wrap';
 
@@ -628,6 +673,7 @@ function buildBlankInput(idx, key, info){
   input.autocorrect = 'off';
   input.spellcheck = false;
   input.setAttribute('inputmode', 'text');
+  input.setAttribute('enterkeyhint', 'done');
   input.style.width = '1ch';
 
   const remaining = document.createElement('span');
@@ -661,7 +707,21 @@ function buildBlankInput(idx, key, info){
 
   wrap.appendChild(input);
   wrap.appendChild(remaining);
-  return wrap;
+
+  const hintBtn = document.createElement('button');
+  hintBtn.type = 'button';
+  hintBtn.className = 'blank-hint';
+  hintBtn.setAttribute('aria-label', 'Indice pour ce mot');
+  hintBtn.tabIndex = -1;
+  hintBtn.textContent = '?';
+  hintBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    revealHint(idx, key);
+  });
+
+  slot.appendChild(wrap);
+  slot.appendChild(hintBtn);
+  return slot;
 }
 
 function checkBlankInput(idx, key, input){
@@ -676,18 +736,28 @@ function checkBlankInput(idx, key, input){
   log('> TENTATIVE : "'+raw.toUpperCase()+'" — CORRESPONDANCE TROUVÉE', 'ok');
   if(focusedBlank && focusedBlank.idx === idx && focusedBlank.key === key) focusedBlank = null;
 
-  renderDossier(f, idx);
+  const wasFocused = document.activeElement === input;
+  revealSolvedBlank(idx, key, info);
   updateBlanksLeft(f, idx);
 
   if(state[idx].solved.size === Object.keys(f.blanks).length){
     onFileComplete(f);
-  } else {
-    focusFirstBlank();
+  } else if(wasFocused){
+    focusNextRemainingBlank();
   }
   return true;
 }
 
-function focusFirstBlank(){
+// Replace only the solved blank's slot(s) instead of re-rendering the whole
+// dossier, so other partially-typed blanks and the mobile keyboard don't
+// get reset/flickered on every correct guess.
+function revealSolvedBlank(idx, key, info){
+  document.querySelectorAll('#dossier-body .blank-slot[data-key="'+key+'"]').forEach(slot=>{
+    slot.replaceWith(buildRevealedSpan(info));
+  });
+}
+
+function focusNextRemainingBlank(){
   const input = document.querySelector('#dossier-body .blank-input');
   if(input) input.focus();
 }
@@ -711,23 +781,36 @@ document.addEventListener('DOMContentLoaded', function(){
   typeIntro();
 });
 
+// Once the mobile on-screen keyboard finishes animating open/closed, the
+// visual viewport resizes; re-run scrollIntoView so the focused blank stays
+// clear of the keyboard instead of relying on a single fixed-delay guess.
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', function(){
+    const active = document.activeElement;
+    if(!active || !active.classList || !active.classList.contains('blank-input')) return;
+    const wrap = active.closest('.blank-wrap');
+    if(wrap) wrap.scrollIntoView({block:'center', behavior:'smooth'});
+  });
+}
+
+function revealHint(idx, key){
+  const display = files[idx].blanks[key].display;
+  log('> INDICE : le mot commence par "'+display[0]+'" et contient '+display.length+' lettres.');
+  const input = document.querySelector('#dossier-body .blank-input[data-key="'+key+'"]');
+  if(input) input.focus();
+}
+
 function useHint(){
   const f = files[currentFileIndex];
   const solved = state[currentFileIndex].solved;
   const remaining = Object.keys(f.blanks).filter(k=>!solved.has(k));
   if(remaining.length === 0) return;
 
-  let key;
-  if(focusedBlank && focusedBlank.idx === currentFileIndex && remaining.includes(focusedBlank.key)){
-    key = focusedBlank.key;
-  } else {
-    key = remaining[Math.floor(Math.random()*remaining.length)];
-  }
+  const key = (focusedBlank && focusedBlank.idx === currentFileIndex && remaining.includes(focusedBlank.key))
+    ? focusedBlank.key
+    : remaining[Math.floor(Math.random()*remaining.length)];
 
-  const display = f.blanks[key].display;
-  log('> INDICE : le mot commence par "'+display[0]+'" et contient '+display.length+' lettres.');
-  const input = document.querySelector('#dossier-body .blank-input[data-key="'+key+'"]');
-  if(input) input.focus();
+  revealHint(currentFileIndex, key);
 }
 
 function onFileComplete(f){
