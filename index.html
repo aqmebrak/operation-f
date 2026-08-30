@@ -180,31 +180,42 @@
   }
   @keyframes pop{0%{transform:scale(1.15);}100%{transform:scale(1);}}
 
-  .blank-input{
-    display:inline-block;
+  .blank-wrap{
+    display:inline-flex;
+    align-items:baseline;
     background:#111;
-    border:none;
     border-bottom:2px solid var(--red);
-    color:var(--amber);
-    font-family:inherit;
-    font-size:inherit;
-    letter-spacing:2px;
-    text-align:center;
-    text-transform:uppercase;
     padding:1px 4px;
     margin:0 1px;
-    outline:none;
     transition:all .25s;
   }
-  .blank-input::placeholder{color:var(--text-dim);opacity:0.6;}
-  .blank-input:focus{border-bottom-color:var(--amber);background:#161b22;}
-  .blank-input.wrong{
+  .blank-wrap:focus-within{border-bottom-color:var(--amber);background:#161b22;}
+  .blank-wrap.wrong{
     border-bottom-color:var(--red);
     animation:shake .3s;
   }
   @keyframes shake{
     25%{transform:translateX(-4px);}
     75%{transform:translateX(4px);}
+  }
+  .blank-input{
+    display:inline-block;
+    background:transparent;
+    border:none;
+    color:var(--amber);
+    font-family:inherit;
+    font-size:inherit;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:0;
+    min-width:1ch;
+    outline:none;
+  }
+  .blank-remaining{
+    color:var(--text-dim);
+    letter-spacing:2px;
+    white-space:pre;
+    pointer-events:none;
   }
 
   .log{
@@ -604,25 +615,38 @@ function renderDossier(f, idx){
 }
 
 function buildBlankInput(idx, key, info){
+  const wrap = document.createElement('span');
+  wrap.className = 'blank-wrap';
+
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'blank-input';
   input.dataset.key = key;
-  input.placeholder = '_'.repeat(info.display.length);
   input.maxLength = info.display.length + 2;
   input.autocomplete = 'off';
   input.autocapitalize = 'characters';
   input.autocorrect = 'off';
   input.spellcheck = false;
   input.setAttribute('inputmode', 'text');
-  input.style.width = (info.display.length + 2) + 'ch';
+  input.style.width = '1ch';
+
+  const remaining = document.createElement('span');
+  remaining.className = 'blank-remaining';
+  remaining.textContent = '_'.repeat(info.display.length);
+
+  function syncBlankDisplay(){
+    const len = input.value.length;
+    input.style.width = Math.max(len, 1) + 'ch';
+    remaining.textContent = '_'.repeat(Math.max(info.display.length - len, 0));
+  }
 
   input.addEventListener('focus', function(){
     focusedBlank = {idx, key};
-    setTimeout(()=>input.scrollIntoView({block:'center', behavior:'smooth'}), 250);
+    setTimeout(()=>wrap.scrollIntoView({block:'center', behavior:'smooth'}), 250);
   });
   input.addEventListener('input', function(){
-    input.classList.remove('wrong');
+    wrap.classList.remove('wrong');
+    syncBlankDisplay();
     checkBlankInput(idx, key, input);
   });
   input.addEventListener('keydown', function(e){
@@ -631,11 +655,13 @@ function buildBlankInput(idx, key, info){
     if(checkBlankInput(idx, key, input)) return;
     const raw = input.value;
     if(raw.trim()) log('> TENTATIVE : "'+raw.toUpperCase()+'" — ÉCHEC', 'no');
-    input.classList.add('wrong');
-    setTimeout(()=>input.classList.remove('wrong'), 300);
+    wrap.classList.add('wrong');
+    setTimeout(()=>wrap.classList.remove('wrong'), 300);
   });
 
-  return input;
+  wrap.appendChild(input);
+  wrap.appendChild(remaining);
+  return wrap;
 }
 
 function checkBlankInput(idx, key, input){
